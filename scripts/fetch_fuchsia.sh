@@ -110,7 +110,6 @@ print_next_steps() {
   export PATH="$TARGET_DIR/.jiri_root/bin:\$PATH"
   cd $TARGET_DIR
   jiri help && fx help
-  (опционально) scripts/prune_fuchsia.sh $TARGET_DIR --apply
 EOF
 }
 
