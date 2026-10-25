@@ -78,7 +78,7 @@ bootstrap_jiri() {
     "https://chrome-infra-packages.appspot.com/client?platform=${cipd_platform}&version=latest"
   chmod +x "$TARGET_DIR/cipd"
 
-  printf 'fuchsia/internal/jiri/%s latest\n' "$cipd_platform" \
+  printf 'fuchsia/tools/jiri/%s latest\n' "$cipd_platform" \
     > "$TARGET_DIR/jiri.ensure"
   "$TARGET_DIR/cipd" ensure -root "$TARGET_DIR/.jiri_root/bin" \
     -ensure-file "$TARGET_DIR/jiri.ensure"
