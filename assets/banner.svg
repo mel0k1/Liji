@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-label="Liji">
+<defs>
+<linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#D0BCFF"/><stop offset="100%" stop-color="#EFB8C8"/></linearGradient>
+<linearGradient id="g2" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#EFB8C8"/><stop offset="100%" stop-color="#CCC2DC"/></linearGradient>
+<linearGradient id="gbg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#141218"/><stop offset="100%" stop-color="#1D1B20"/></linearGradient>
+</defs>
+<rect width="1280" height="320" rx="24" fill="url(#gbg)"/>
+<circle cx="1005" cy="163" r="112" fill="url(#g1)"/>
+<path d="M 1231.00 92.00 A 31.57 31.57 0 0 1 1211.67 138.67 A 31.57 31.57 0 0 1 1165.00 158.00 A 31.57 31.57 0 0 1 1118.33 138.67 A 31.57 31.57 0 0 1 1099.00 92.00 A 31.57 31.57 0 0 1 1118.33 45.33 A 31.57 31.57 0 0 1 1165.00 26.00 A 31.57 31.57 0 0 1 1211.67 45.33 A 31.57 31.57 0 0 1 1231.00 92.00 Z" fill="#CCC2DC" opacity="0.92"/>
+<g fill="url(#g2)"><circle cx="872" cy="238" r="34"/><circle cx="872" cy="238" r="34" transform="translate(38 0)"/><circle cx="872" cy="238" r="34" transform="translate(0 38)"/><circle cx="872" cy="238" r="34" transform="translate(38 38)"/></g>
+<circle cx="1072" cy="252" r="40" fill="none" stroke="#E6E0E9" stroke-width="10"/>
+<rect x="928" y="44" width="200" height="58" rx="29" fill="#4A4458"/>
+<circle cx="1240" cy="210" r="18" fill="#EFB8C8"/>
+<text x="80" y="172" font-family="Arial, Helvetica, sans-serif" font-size="128" font-weight="700" letter-spacing="-3" fill="#FFFFFF">Liji</text>
+<text x="84" y="228" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="400" letter-spacing="1" fill="#CAC4D0">Mejo DE &#183; Flutter &#183; Zircon &#183; Fuchsia</text>
+<text x="84" y="86" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600" letter-spacing="6" fill="#D0BCFF">MATERIAL 3 EXPRESSIVE</text>
+</svg>
