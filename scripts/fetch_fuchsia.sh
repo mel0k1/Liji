@@ -57,7 +57,7 @@ run_preflight() {
   log "запуск ffx platform preflight"
   local tmp
   tmp=$(mktemp -d)
-  curl -sS -o "$tmp/ffx" "https://storage.googleapis.com/fuchsia-ffx/ffx-linux-x64"
+  curl -sSL -o "$tmp/ffx" "https://storage.googleapis.com/fuchsia-ffx/ffx-linux-x64"
   chmod +x "$tmp/ffx"
   "$tmp/ffx" platform preflight
   rm -rf "$tmp"
@@ -74,7 +74,7 @@ bootstrap_jiri() {
 
   log "установка jiri через CIPD (${cipd_platform})"
   mkdir -p "$TARGET_DIR/.jiri_root/bin"
-  curl -sS -o "$TARGET_DIR/cipd" \
+  curl -sSL -o "$TARGET_DIR/cipd" \
     "https://chrome-infra-packages.appspot.com/client?platform=${cipd_platform}&version=latest"
   chmod +x "$TARGET_DIR/cipd"
 
