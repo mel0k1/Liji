@@ -82,7 +82,8 @@ bootstrap_jiri() {
     > "$TARGET_DIR/jiri.ensure"
   "$TARGET_DIR/cipd" ensure -root "$TARGET_DIR/.jiri_root/bin" \
     -ensure-file "$TARGET_DIR/jiri.ensure"
-  "$TARGET_DIR/.jiri_root/bin/jiri" version
+  export PATH="$TARGET_DIR/.jiri_root/bin:$PATH"
+  jiri version
 }
 
 fetch_sources() {
