@@ -32,8 +32,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Целостность ссылок на файлы в README
+      - name: Целостность ссылок в README
         run: |
-          for path in $(grep -oE '\]\((docs|scripts|assets)/[^)]+\)' README.md | sed 's/^](//; s/)$//'); do
+          for path in $(grep -oE '\]\((docs|scripts|assets|products|mejo)/[^)]+\)' README.md | sed 's/^](//; s/)$//'); do
             test -e "$path" || { echo "битая ссылка: $path"; exit 1; }
           done
+
+  mejo:
+    name: Анализ Mejo
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mejo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter analyze

@@ -1,0 +1,33 @@
+name: fetch
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+
+jobs:
+  checkout:
+    name: Выкачка исходников Fuchsia
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Кэш чекаута jiri
+        uses: actions/cache@v4
+        with:
+          path: fuchsia-checkout
+          key: jiri-stem-${{ github.run_id }}
+          restore-keys: jiri-stem-
+
+      - name: Выкачка (stem, без prebuilts)
+        run: ./scripts/fetch_fuchsia.sh -d "$PWD/fuchsia-checkout" -m stem --no-prebuilts
+
+      - name: Отчёт
+        run: |
+          {
+            echo "## Чекаут Fuchsia (stem)"
+            echo
+            echo "Объём: $(du -sh fuchsia-checkout | cut -f1)"
+            echo "Проектов jiri: $(cd fuchsia-checkout && .jiri_root/bin/jiri list | wc -l)"
+          } >> "$GITHUB_STEP_SUMMARY"
