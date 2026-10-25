@@ -1,0 +1,6 @@
+fuchsia/
+out/
+.dart_tool/
+.jiri_root/
+*.log
+.DS_Store
