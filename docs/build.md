@@ -4,15 +4,16 @@
 
 ## Требования
 
-- Linux x64, 16+ ГБ RAM (лучше 32), 100+ ГБ диска, KVM для эмулятора.
+- Linux x64, 16+ ГБ RAM (лучше 32), KVM для эмулятора.
+- Для локальной сборки: 100+ ГБ диска. Если столько нет — вся сборка идёт в GitHub CI (раздел 5).
 - Пакеты: `curl`, `file`, `git` (≥ 2.31), `unzip`. Для FEMU: `fx setup-ufw` настроит фаервол.
 - Актуальный список пакетов и предварительную проверку машины делает `ffx platform preflight` (`./scripts/fetch_fuchsia.sh --preflight`).
 
 ## 1. Выкачка
 
 ```bash
-./scripts/fetch_fuchsia.sh              # stem, ~7 ГБ, без prebuilts нельзя собирать
-./scripts/fetch_fuchsia.sh --no-prebuilts   # только посмотреть код
+./scripts/fetch_fuchsia.sh              # stem, ~25-30 ГБ с prebuilts — можно собирать
+./scripts/fetch_fuchsia.sh --no-prebuilts   # без CIPD-пакетов, только читать код
 ```
 
 Скрипт ставит jiri через CIPD, импортирует манифест `stem` из официального репозитория интеграции и запускает `jiri update`. Полная выкачка (`-m flower`) — если нужны перталсы. После выкачки:
@@ -22,7 +23,7 @@ export PATH="$HOME/liji-fuchsia/.jiri_root/bin:$PATH"
 cd ~/liji-fuchsia && fx help
 ```
 
-Выкачку можно доверить CI: Actions → **fetch** → Run workflow — чекаут кэшируется, в Summary джобы печатаются объём и состав проектов.
+Выкачку можно доверить CI: Actions → **source-snapshot** → Run workflow. Снапшот публикуется в Releases частями по 1.9 ГБ — его используют сборочные джобы, и его же можно скачать себе.
 
 ## 2. Конфигурация продукта (штатный механизм)
 
@@ -48,10 +49,20 @@ ffx target list                         # эмулятор должен появ
 
 Внутри эмулятора: консоль zircon, системные сервисы, `ffx shell`. На этом Фаза 1 закрыта.
 
-## 5. Self-hosted runner для сборки в CI
+## 5. Сборка в GitHub CI (без 100 ГБ локально)
 
-Сборка не влезает в бесплатные облачные раннеры (диск и время), поэтому сборочные джобы гоняются на self-hosted runner на целевой машине:
+У бесплатных раннеров мало диска, поэтому конвейер разбит на два workflow:
 
-1. Settings → Actions → Runners → New self-hosted runner.
-2. Раннер помечается меткой `build`; workflow сборки (`build.yml`, появится в Фазе 1) запускается с `runs-on: [self-hosted, build]`.
-3. Раннеру нужны те же требования, что и в разделе «Требования», плюс вечный кэш чекаута — выкачка делается один раз, далее `jiri update`.
+- **source-snapshot** — освобождает ~30 ГБ на раннере, выкачивает исходники через jiri по официальному манифесту `stem` (с prebuilts), пакует в tar.zst частями по 1.9 ГБ и публикует в Releases. Рядом ложится jiri-snapshot — паспорт состояния манифестов. Хранятся два последних снапшота.
+- **build** — восстанавливает последний снапшот, выполняет `fx set <таргет> --release` и `fx build`, затем головной boot-тест: FEMU без экрана, в serial-логе ищется маркер загрузки (`welcome to Zircon` для bringup). Лог и образ — в артефактах джобы.
+
+Таргеты: `bringup.x64` (по умолчанию — гарантированно помещается на раннер), `minimal.x64`, `core.x64` (может не влезть в диск/время бесплатного раннера). После успешного снапшота сборка запускается автоматически (workflow_run); вручную — Actions → build → Run workflow.
+
+Склеить снапшот для локальной работы:
+
+```bash
+cat fuchsia-src.tar.zst.part-* > fuchsia-src.tar.zst
+zstd -d fuchsia-src.tar.zst -o fuchsia.tar && tar -xf fuchsia.tar
+```
+
+Если нужен регулярный `core.x64` и полные 80–90 ГБ в `out/` — self-hosted runner: Settings → Actions → Runners → New self-hosted runner, метка `build`.

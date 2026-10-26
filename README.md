@@ -7,7 +7,9 @@
 **Операционная система на базе Zircon и Fuchsia с десктоп-окружением Mejo**
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-D0BCFF?style=flat-square)](LICENSE)
-[![CI](https://img.shields.io/badge/CI-GitHub_Actions-7D5260?style=flat-square)](.github/workflows/ci.yml)
+[![CI](https://github.com/mel0k1/Liji/actions/workflows/ci.yml/badge.svg)](https://github.com/mel0k1/Liji/actions/workflows/ci.yml)
+[![source-snapshot](https://github.com/mel0k1/Liji/actions/workflows/source-snapshot.yml/badge.svg)](https://github.com/mel0k1/Liji/actions/workflows/source-snapshot.yml)
+[![build](https://github.com/mel0k1/Liji/actions/workflows/build.yml/badge.svg)](https://github.com/mel0k1/Liji/actions/workflows/build.yml)
 [![База](https://img.shields.io/badge/база-Fuchsia_\/_Zircon-CCC2DC?style=flat-square)](docs/architecture.md)
 
 </div>
@@ -45,25 +47,24 @@ Liji/
 ├── docs/              архитектура, roadmap, гайд сборки
 ├── products/          продуктовая конфигурация Liji (fx set)
 ├── mejo/              каркас оболочки: панель, часы, лаунчер
-├── scripts/           выкачка исходников Fuchsia
-└── .github/           CI: выкачка в Actions, проверки
+├── scripts/           выкачка исходников Fuchsia, boot-тест эмулятора
+└── .github/           CI: снапшот исходников, сборка с boot-тестом, проверки
 ```
 
-## Выкачка и сборка
+## Выкачка и сборка — в CI, без 100 ГБ на диске
 
-Локально (порядка 7 ГБ под исходники, 80–90 ГБ под сборку):
+Тяжёлое живёт в GitHub Actions, локально нужен только этот репозиторий:
 
-```bash
-./scripts/fetch_fuchsia.sh
-```
+1. **source-snapshot** — выкачка через jiri по официальному манифесту `stem`, упаковка в tar.zst и публикация в Releases (частями по 1.9 ГБ).
+2. **build** — восстановление снапшота, `fx set` / `fx build` штатными инструментами и головной boot-тест в FEMU; serial-лог — в артефактах.
 
-В GitHub Actions: вкладка Actions → **fetch** → Run workflow. Чекаут jiri кэшируется между запусками, объём и состав пишутся в Summary джобы.
+Запуск: Actions → соответствующий workflow → Run workflow; сборка стартует и автоматически после свежего снапшота.
 
-Сборка и запуск в QEMU/FEMU — по шагам в [docs/build.md](docs/build.md).
+Локальная сборка на машине со 100+ ГБ и детали — в [docs/build.md](docs/build.md).
 
 ## Дорожная карта
 
-- **Фаза 1** — выкачка, первая сборка `core.x64`, запуск в FEMU *(выкачка уже работает в CI)*
+- **Фаза 1** — выкачка, первая сборка и запуск в FEMU *(выкачка и сборка идут в CI)*
 - **Фаза 2** — минимальный образ Liji: загрузка, вход, системные сервисы
 - **Фаза 3** — Flutter runtime в образе, первый нативный UI-компонент
 - **Фаза 4** — Mejo MVP: shell, лаунчер, окна
@@ -72,7 +73,7 @@ Liji/
 
 ## English summary
 
-Liji is an experimental desktop OS: the Zircon microkernel, a trimmed Fuchsia core as the system base, and the Mejo desktop shell. Trimming is done with the platform's own mechanisms — the `stem` jiri manifest for checkout and `fx set` product configurations for builds — so Liji builds from a clean checkout with standard Fuchsia tooling. Fetch sources with `scripts/fetch_fuchsia.sh` or the CI `fetch` workflow; build steps are in [docs/build.md](docs/build.md).
+Liji is an experimental desktop OS: the Zircon microkernel, a trimmed Fuchsia core as the system base, and the Mejo desktop shell. Trimming is done with the platform's own mechanisms — the `stem` jiri manifest for checkout and `fx set` product configurations for builds — so Liji builds from a clean checkout with standard Fuchsia tooling. Source sync and builds run in GitHub CI (`source-snapshot` and `build` workflows), so no huge disk is needed locally; local steps are described in [docs/build.md](docs/build.md).
 
 ## Юридическая заметка
 
