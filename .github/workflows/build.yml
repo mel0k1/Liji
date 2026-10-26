@@ -75,12 +75,12 @@ jobs:
           mkdir -p parts
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
             --dir parts --pattern 'fuchsia-src.tar.zst.part-*'
-          cat parts/fuchsia-src.tar.zst.part-* > fuchsia-src.tar.zst
+          # стрим: части → zstd → tar без промежуточных файлов
+          # (пик диска = части + распакованное дерево, без копий архива)
+          cat parts/fuchsia-src.tar.zst.part-* \
+            | zstd -d -T0 \
+            | tar -xf - -C "$GITHUB_WORKSPACE"
           rm -rf parts
-          zstd -d -T0 -f fuchsia-src.tar.zst -o fuchsia-src.tar
-          rm fuchsia-src.tar.zst
-          tar -xf fuchsia-src.tar -C "$GITHUB_WORKSPACE"
-          rm fuchsia-src.tar
           du -sh "$CHECKOUT"
           df -h /
 
