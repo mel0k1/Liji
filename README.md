@@ -18,17 +18,17 @@
 
 ## Что это
 
-Liji — экспериментальная десктопная ОС. Ядро — Zircon, системная база — урезанное ядро Fuchsia, оболочка — Mejo. Из платформы берётся только то, что делает её настоящей ОС: компонентный фреймворк, драйверы, графика, ввод, звук, сеть, обновления. Никаких сэмплов, демо и мёртвых перталсов.
+Liji — экспериментальная десктопная ОС. В основе — микроядро Zircon. Всё остальное собираем по потребности: своё пишем сами (оболочка Mejo, системные сервисы), а из Fuchsia берём только нужные куски — компонентный фреймворк, драйверы, графику, ввод, звук, сеть, обновления. Лишнее в образ не попадает.
 
-Урезание ведётся штатными механизмами платформы, а не удалением каталогов: лёгкий манифест jiri (`stem` вместо `flower`) на этапе выкачки и продуктовая конфигурация `fx set` с собственным файлом продукта на этапе сборки. Liji собирается из чистого чекаута стандартными инструментами Fuchsia, и любой другой сборщик может использовать то же дерево исходников для своего продукта без сюрпризов.
+«Брать по нужному» — это не копирование каталогов, а декларативный состав: пул исходников Fuchsia живёт в CI (снапшот по официальному манифесту `stem`), а в образ входит ровно то, что заявлено продуктовым файлом `fx set`. Хочешь убрать подсистему — правишь продукт, а не выкачку. Локально нужен только этот репозиторий: ни 30 ГБ исходников, ни 90 ГБ сборки.
 
 ## Ключевые решения
 
 | Компонент | Выбор | Почему |
 |---|---|---|
 | Ядро | Zircon | Микроядро, capability-безопасность, драйверы в user space |
-| Системная база | Fuchsia core | CFv2, FIDL, Scenic, netstack, файловые системы |
-| Оболочка | Mejo | Единый рендер и единая дизайн-система на весь UI |
+| Своё | Mejo + сервисы Liji | Пишем сами как компоненты Fuchsia |
+| Из Fuchsia | по потребности | CFv2, FIDL, Scenic, netstack, файловые системы — состав задаёт продукт |
 | Платформы | x64 → ARM64 | QEMU, затем реальное железо |
 
 ## Почему Zircon
@@ -73,7 +73,7 @@ Liji/
 
 ## English summary
 
-Liji is an experimental desktop OS: the Zircon microkernel, a trimmed Fuchsia core as the system base, and the Mejo desktop shell. Trimming is done with the platform's own mechanisms — the `stem` jiri manifest for checkout and `fx set` product configurations for builds — so Liji builds from a clean checkout with standard Fuchsia tooling. Source sync and builds run in GitHub CI (`source-snapshot` and `build` workflows), so no huge disk is needed locally; local steps are described in [docs/build.md](docs/build.md).
+Liji is an experimental desktop OS built on the Zircon microkernel. Everything else is composed on demand: our own parts (the Mejo shell, Liji services) are written from scratch, while selected pieces of Fuchsia (component framework, drivers, graphics, input, audio, networking, updates) are included only when the product asks for them. The Fuchsia source pool lives in CI (a snapshot synced via the official `stem` jiri manifest), and the image contains exactly what the `fx set` product file declares. Source sync and builds run in GitHub CI (`source-snapshot` and `build` workflows), so no huge disk is needed locally; local steps are described in [docs/build.md](docs/build.md).
 
 ## Юридическая заметка
 
