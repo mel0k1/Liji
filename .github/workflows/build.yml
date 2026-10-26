@@ -1,0 +1,146 @@
+name: build
+
+# Сборка Liji/Fuchsia в GitHub-hosted CI без 100 ГБ на локальной машине:
+# 1) восстанавливаем снапшот исходников из Releases (см. source-snapshot);
+# 2) конфигурируем и собираем штатными инструментами (fx set / fx build);
+# 3) головной boot-тест: FEMU без экрана, в serial-логе ждём маркер загрузки.
+#
+# По умолчанию собирается bringup.x64 — минимальный и гарантированно
+# помещающийся на раннер таргет. core.x64 может не влезть в диск/время.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Цель fx (продукт.плата)"
+        type: choice
+        options: [bringup.x64, minimal.x64, core.x64]
+        default: bringup.x64
+      snapshot_tag:
+        description: "Тег снапшота (пусто = последний)"
+        required: false
+        default: ""
+  workflow_run:
+    workflows: ["source-snapshot"]
+    types: [completed]
+
+concurrency:
+  group: build-${{ inputs.target || 'bringup.x64' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Сборка и boot-тест
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      CHECKOUT: ${{ github.workspace }}/fuchsia
+      TARGET: ${{ inputs.target || 'bringup.x64' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Освобождение диска раннера (~30 ГБ)
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/.ghcup /usr/share/swift /usr/local/share/boost \
+            /usr/lib/jvm /opt/hostedtoolcache/CodeQL
+          sudo docker image prune -af > /dev/null 2>&1 || true
+          df -h /
+
+      - name: Пакеты (zstd)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+
+      - name: Загрузка и распаковка снапшота исходников
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.snapshot_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 \
+              --json tagName --jq '.[].tagName' \
+              | grep '^source-snapshot-' | head -n1 || true)
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error::Снапшот не найден. Сначала запустите workflow source-snapshot."
+            exit 1
+          fi
+          echo "Снапшот: $TAG"
+          mkdir -p parts
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --dir parts --pattern 'fuchsia-src.tar.zst.part-*'
+          cat parts/fuchsia-src.tar.zst.part-* > fuchsia-src.tar.zst
+          rm -rf parts
+          zstd -d -T0 -f fuchsia-src.tar.zst -o fuchsia-src.tar
+          rm fuchsia-src.tar.zst
+          tar -xf fuchsia-src.tar -C "$GITHUB_WORKSPACE"
+          rm fuchsia-src.tar
+          du -sh "$CHECKOUT"
+          df -h /
+
+      - name: Проверка снапшота и пути fx
+        run: |
+          FX=""
+          for p in "$CHECKOUT/.jiri_root/bin/fx" "$CHECKOUT/scripts/fx"; do
+            if [ -x "$p" ]; then
+              FX="$p"
+              break
+            fi
+          done
+          if [ -z "$FX" ]; then
+            echo "::error::fx не найден в снапшоте (ожидали .jiri_root/bin/fx или scripts/fx)"
+            exit 1
+          fi
+          echo "FX=$FX" >> "$GITHUB_ENV"
+          echo "fx: $FX"
+
+      - name: Конфигурация продукта (fx set — штатный инструмент)
+        run: |
+          cd "$CHECKOUT"
+          "$FX" set "$TARGET" --release
+          df -h /
+
+      - name: Сборка (fx build)
+        run: |
+          cd "$CHECKOUT"
+          SECONDS=0
+          "$FX" build
+          BUILD_MIN=$((SECONDS / 60))
+          {
+            echo "## Сборка $TARGET"
+            echo
+            echo "- Таргет: \`$TARGET\` (штатные fx set / fx build)"
+            echo "- Время сборки: ${BUILD_MIN} мин"
+            echo "- out/default: $(du -sh out/default | cut -f1)"
+            echo "- Свободно на диске: $(df -h / | awk 'NR==2 {print $4}')"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Boot-тест в FEMU (headless)
+        run: |
+          bash "$GITHUB_WORKSPACE/scripts/boot_smoke.sh" "$CHECKOUT" "$TARGET" 420
+
+      - name: Подготовка артефактов
+        if: always()
+        run: |
+          mkdir -p ci-out
+          find "$CHECKOUT/out" -maxdepth 4 -name '*.zbi' -type f -size +1M 2>/dev/null \
+            | head -n 3 | while read -r z; do
+              cp "$z" ci-out/ || true
+            done
+          ls -lh ci-out/ || true
+
+      - name: Артефакты (образ и serial-лог)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ inputs.target || 'bringup.x64' }}
+          path: |
+            ci-out/
+            /tmp/femu-serial.log
+          if-no-files-found: warn

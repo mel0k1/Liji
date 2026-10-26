@@ -1,0 +1,99 @@
+name: source-snapshot
+
+# Выкачка исходников Fuchsia через jiri с ОФИЦИАЛЬНЫМ манифестом и упаковка
+# в снапшот, публикуемый в Releases частями по 1.9 ГБ (лимит GitHub на ассет).
+# Из этого снапшота workflow build собирает и запускает образ — так весь
+# тяжёлый путь (сотни репозиториев, десятки ГБ) живёт в CI, а не на машине.
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest:
+        description: "Официальный манифест jiri"
+        type: choice
+        options: [stem, flower, minimal]
+        default: stem
+  schedule:
+    - cron: "0 3 * * 1" # понедельник 03:00 UTC
+
+concurrency:
+  group: source-snapshot
+  cancel-in-progress: false
+
+permissions:
+  contents: write # публикация release со снапшотом
+
+jobs:
+  snapshot:
+    name: Выкачка и упаковка исходников
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      CHECKOUT: ${{ github.workspace }}/fuchsia
+      MANIFEST: ${{ inputs.manifest || 'stem' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Освобождение диска раннера (~30 ГБ)
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/.ghcup /usr/share/swift /usr/local/share/boost \
+            /usr/lib/jvm /opt/hostedtoolcache/CodeQL
+          sudo docker image prune -af > /dev/null 2>&1 || true
+          df -h /
+
+      - name: Пакеты (zstd)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+
+      - name: Выкачка исходников (jiri, манифест ${{ inputs.manifest || 'stem' }})
+        run: ./scripts/fetch_fuchsia.sh -d "$CHECKOUT" -m "$MANIFEST"
+
+      - name: Паспорт снапшота
+        run: |
+          cd "$CHECKOUT"
+          PROJECTS=$(find . -maxdepth 5 -name .git -type d -prune | wc -l)
+          {
+            echo "## Снапшот исходников Fuchsia"
+            echo
+            echo "- Манифест: \`$MANIFEST\` (официальный, из integration)"
+            echo "- Объём: $(du -sh . | cut -f1)"
+            echo "- Проектов jiri: $PROJECTS"
+            echo "- integration: $(git -C integration rev-parse --short HEAD)"
+            echo "- Дата: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "Склейка частей: \`cat fuchsia-src.tar.zst.part-* > fuchsia-src.tar.zst\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          .jiri_root/bin/jiri snapshot /tmp/jiri-snapshot
+
+      - name: Упаковка (tar.zst, части по 1.9 ГБ)
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          tar -I 'zstd -3 -T0' -cf snap.tar.zst \
+            -C "$(dirname "$CHECKOUT")" "$(basename "$CHECKOUT")"
+          split -b 1900M -d snap.tar.zst fuchsia-src.tar.zst.part-
+          rm -f snap.tar.zst
+          ls -lh fuchsia-src.tar.zst.part-*
+          df -h /
+
+      - name: Публикация в Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="source-snapshot-$(date -u +%Y%m%d-%H%M)"
+          gh release create "$TAG" \
+            --title "Снапшот исходников Fuchsia — $MANIFEST — $TAG" \
+            --notes "Чекаут jiri по официальному манифесту $MANIFEST (с prebuilts). Склейка частей: cat fuchsia-src.tar.zst.part-* > fuchsia-src.tar.zst, затем zstd -d fuchsia-src.tar.zst -o fuchsia.tar и распаковать tar -xf. Рядом приложен jiri-snapshot — состояние манифестов для воспроизводимости." \
+            fuchsia-src.tar.zst.part-* /tmp/jiri-snapshot
+          # retention: оставляем не более двух свежих снапшотов
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.tag_name | startswith("source-snapshot-")) | .tag_name' \
+            | tail -n +3 \
+            | while read -r OLD; do
+                gh release delete "$OLD" --yes --cleanup-tag || true
+              done
+
+      - name: Диск после
+        if: always()
+        run: df -h /
